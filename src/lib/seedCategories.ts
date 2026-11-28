@@ -1,42 +1,54 @@
-// Run via: npx tsx src/lib/seedCategories.ts
-// Requires .env.local to be set up with Firebase keys
-import { initializeApp } from 'firebase/app';
-import { getFirestore, collection, addDoc, getDocs, deleteDoc } from 'firebase/firestore';
+// Run via: npm run seed
+//
+// Uses the Firebase Admin SDK, which authenticates with a service account and
+// BYPASSES Firestore security rules (rules only apply to browser/client SDKs).
+// That's why this script can write to `categories` even though the rules only
+// allow the admin UID to do so from the app.
+//
+// Setup (one time):
+//   Firebase console → Project settings → Service accounts →
+//   "Generate new private key" → save the file as ./serviceAccount.json
+//   (it is gitignored — NEVER commit it; it grants full access to your project).
+import { readFileSync } from 'node:fs';
+import { initializeApp, cert, type ServiceAccount } from 'firebase-admin/app';
+import { getFirestore } from 'firebase-admin/firestore';
 import { SEED_CATEGORIES } from '../game/seed-data';
-import * as dotenv from 'dotenv';
 
-dotenv.config({ path: '.env.local' });
+const KEY_PATH = process.env.GOOGLE_APPLICATION_CREDENTIALS ?? './serviceAccount.json';
 
-const app = initializeApp({
-  apiKey: process.env.VITE_FIREBASE_API_KEY,
-  authDomain: process.env.VITE_FIREBASE_AUTH_DOMAIN,
-  projectId: process.env.VITE_FIREBASE_PROJECT_ID,
-  storageBucket: process.env.VITE_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: process.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-  appId: process.env.VITE_FIREBASE_APP_ID,
-});
+let serviceAccount: ServiceAccount;
+try {
+  serviceAccount = JSON.parse(readFileSync(KEY_PATH, 'utf8'));
+} catch {
+  console.error(
+    `Could not read service account key at ${KEY_PATH}.\n` +
+      'Download it from Firebase console → Project settings → Service accounts.',
+  );
+  process.exit(1);
+}
 
-const db = getFirestore(app);
+initializeApp({ credential: cert(serviceAccount) });
+const db = getFirestore();
 
 async function seed() {
-  const col = collection(db, 'categories');
+  const col = db.collection('categories');
 
-  const existing = await getDocs(col);
-  for (const d of existing.docs) {
-    await deleteDoc(d.ref);
-  }
-  console.log('Cleared existing categories.');
+  // Wipe existing official categories in one batch, then re-add them.
+  const existing = await col.get();
+  const wipe = db.batch();
+  existing.docs.forEach((d) => wipe.delete(d.ref));
+  await wipe.commit();
+  console.log(`Cleared ${existing.size} existing categories.`);
 
+  const add = db.batch();
   for (const cat of SEED_CATEGORIES) {
-    const ref = await addDoc(col, {
-      ...cat,
-      createdAt: new Date().toISOString(),
-    });
-    console.log(`Seeded: ${cat.name} (${ref.id})`);
+    const ref = col.doc(); // auto-generated id, like addDoc()
+    add.set(ref, { ...cat, createdAt: new Date().toISOString() });
+    console.log(`Seeding: ${cat.name} (${ref.id})`);
   }
+  await add.commit();
 
-  console.log('Done!');
-  process.exit(0);
+  console.log(`Done! Seeded ${SEED_CATEGORIES.length} categories.`);
 }
 
 seed().catch((err) => {
