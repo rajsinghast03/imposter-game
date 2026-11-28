@@ -35,8 +35,11 @@ export function GameScreen({ state, dispatch, user }: Props) {
   const { official, custom } = useCategories(user);
   const [showExitWarning, setShowExitWarning] = useState(false);
   const [showPicker, setShowPicker] = useState(false);
-  const [startingPlayerName] = useState(
-    () => state.players[Math.floor(Math.random() * state.players.length)]?.name ?? '',
+  // Who opens the discussion. Re-picked at the start of every round (replay and
+  // after each elimination) — a useState initializer alone only runs on mount,
+  // which made the same player start every round.
+  const [startingPlayerName, setStartingPlayerName] = useState(
+    () => pickStarter(state.players.map((p) => p.name)),
   );
 
   const allCategories = [...official, ...custom];
@@ -59,6 +62,7 @@ export function GameScreen({ state, dispatch, user }: Props) {
       state.settings.imposterSeesHint,
       state.settings.impostersSeeEachOther,
     );
+    setStartingPlayerName((prev) => pickStarter(playerNames, prev));
     dispatch({ type: 'SET_SETTINGS', settings: { categoryId: selectedCategory.id, categoryName: selectedCategory.name, imposterCount: clampedCount } });
     dispatch({ type: 'START_GAME', roles: result.roles, secretWord: result.secretWord, secretHint: result.secretHint });
   };
@@ -236,7 +240,15 @@ export function GameScreen({ state, dispatch, user }: Props) {
           </p>
 
           <button
-            onClick={() => dispatch({ type: 'ACK_ELIMINATION' })}
+            onClick={() => {
+              // Next discussion round: pick a new starter among survivors
+              // (excluding the player just voted out).
+              const survivors = state.players
+                .filter((p, i) => p.isAlive && i !== idx)
+                .map((p) => p.name);
+              setStartingPlayerName((prev) => pickStarter(survivors, prev));
+              dispatch({ type: 'ACK_ELIMINATION' });
+            }}
             className="relative z-10 py-4 px-12 rounded-2xl btn-press flex items-center gap-2"
             style={{ background: S.lemon, color: '#14141A', boxShadow: '0 4px 0 #C9AB22', fontFamily: S.anton, letterSpacing: '0.06em', fontSize: '18px' }}
           >
@@ -273,6 +285,12 @@ export function GameScreen({ state, dispatch, user }: Props) {
   }
 
   return null;
+}
+
+/** Random player name, avoiding `previous` when anyone else is available. */
+function pickStarter(names: string[], previous?: string): string {
+  const candidates = names.length > 1 ? names.filter((n) => n !== previous) : names;
+  return candidates[Math.floor(Math.random() * candidates.length)] ?? '';
 }
 
 function ExitWarningModal({ onConfirm, onCancel }: { onConfirm: () => void; onCancel: () => void }) {
