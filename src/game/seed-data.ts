@@ -1,5 +1,19 @@
 import type { Category } from './types';
 
+/**
+ * Stable document id for an official category, derived from its name
+ * ("Famous People" -> "famous-people"). Keeping ids stable means re-seeding
+ * doesn't break players' saved category selections (stored by id).
+ * Renaming a category changes its id, so treat names as permanent.
+ */
+export function categorySlug(name: string): string {
+  return name
+    .toLowerCase()
+    .normalize('NFKD')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
+
 export const SEED_CATEGORIES: Omit<Category, 'id'>[] = [
   {
     name: 'Famous People',
@@ -350,43 +364,6 @@ export const SEED_CATEGORIES: Omit<Category, 'id'>[] = [
       { word: 'Brahma', hint: 'char-sir' },
       { word: 'Surya', hint: 'saatghoda' },
       { word: 'Narad', hint: 'gossip' },
-    ],
-  },
-  {
-    name: 'Anime',
-    emoji: '⚔️',
-    locale: 'global',
-    isOfficial: true,
-    entries: [
-      { word: 'Naruto', hint: 'ramen' },
-      { word: 'Goku', hint: 'saiyan' },
-      { word: 'Luffy', hint: 'rubber' },
-      { word: 'Levi', hint: 'safai' },
-      { word: 'Eren Yeager', hint: 'basement' },
-      { word: 'Itachi', hint: 'clan-kill' },
-      { word: 'Zoro', hint: 'lost-again' },
-      { word: 'Sasuke', hint: 'emo-bro' },
-      { word: 'Kakashi', hint: 'mask-reader' },
-      { word: 'Light Yagami', hint: 'potato-chip' },
-      { word: 'Gojo', hint: 'blindfold' },
-      { word: 'Saitama', hint: 'ek-mukka' },
-      { word: 'Tanjiro', hint: 'checkered' },
-      { word: 'One Piece', hint: 'thousand-ep' },
-      { word: 'Attack on Titan', hint: 'deewar' },
-      { word: 'Death Note', hint: 'naam-likho' },
-      { word: 'Demon Slayer', hint: 'behan-box' },
-      { word: 'Jujutsu Kaisen', hint: 'ungli' },
-      { word: 'Dragon Ball Z', hint: 'powerup' },
-      { word: 'Bleach', hint: 'shinigami' },
-      { word: 'My Hero Academia', hint: 'quirk' },
-      { word: 'Tokyo Ghoul', hint: 'kaneki' },
-      { word: 'Spy x Family', hint: 'moongphali' },
-      { word: 'Chainsaw Man', hint: 'denji' },
-      { word: 'Doraemon', hint: 'neela-pocket' },
-      { word: 'Shinchan', hint: 'paanch-saal' },
-      { word: 'Pokemon', hint: 'pikachu' },
-      { word: 'Beyblade', hint: 'lattu' },
-      { word: 'Ninja Hattori', hint: 'kenichi' },
     ],
   },
   {

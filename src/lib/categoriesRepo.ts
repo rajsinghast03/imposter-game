@@ -10,14 +10,14 @@ import {
   orderBy,
 } from 'firebase/firestore';
 import { db, OFFLINE } from './firebase';
-import { SEED_CATEGORIES } from '../game/seed-data';
+import { SEED_CATEGORIES, categorySlug } from '../game/seed-data';
 import type { Category, CategoryEntry } from '../game/types';
 
 export async function listOfficialCategories(): Promise<Category[]> {
   if (OFFLINE) {
     // Offline mode: serve the bundled seed categories instead of Firestore.
     return SEED_CATEGORIES
-      .map((c, i) => ({ ...c, id: `seed_${i}` }))
+      .map((c) => ({ ...c, id: categorySlug(c.name) }))
       .sort((a, b) => a.name.localeCompare(b.name));
   }
   const snap = await getDocs(
